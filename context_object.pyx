@@ -1,10 +1,11 @@
+from libcpp cimport bool
 from sage.libs.mpfr cimport *
-from sage.rings.real_mpfr cimport * 
-import numpy as np 
+from sage.rings.real_mpfr cimport *
+import numpy as np
 
 from sage.all import Matrix, is_square, sqrt
 cimport numpy as np
-from sage.functions.other import gamma 
+from sage.functions.other import gamma
 from sage.rings.real_mpfr import RR
 import copy
 import re
@@ -15,16 +16,16 @@ def __mult_poles(poles,pref_const,context):
 
 def z_zbar_derivative_to_x_y_derivative_Matrix_m(Lambda,field=RealField(400)):
     """
-    Transforms the array {D_{z} ^i D_{zbar} ^j f(z,zbar)}_{i+j <= Lambda } 
+    Transforms the array {D_{z} ^i D_{zbar} ^j f(z,zbar)}_{i+j <= Lambda }
     with the property f(z,zbar)=f(zbar,z) to
-    { D_x ^n D_y ^m f(x+y,x-y) } _{m+n <= Lambda } 
+    { D_x ^n D_y ^m f(x+y,x-y) } _{m+n <= Lambda }
 
     The z-zbar derivative array is assumed to align in the manner
 
     f, D_z f, D_z ^2 f, \cdots, D_z ^{\Lambda} f, D_{zbar} f, D_{zbar} D_z f,
     \cdots D_{zbar} D_z^{\Lambda-1} f \cdots
     """
-    q=field['x'] 
+    q=field['x']
     if (Lambda%2):
         dimG=(Lambda+1)*(Lambda+3)/4
     else:
@@ -39,24 +40,24 @@ def z_zbar_derivative_to_x_y_derivative_Matrix_m(Lambda,field=RealField(400)):
             tempres.update({repr(i)+","+repr(j):temp})
             column_position=(Lambda+2-i)*i+(j-i-1)
             # z^i bz^j - > x^m y^{2n}
-            # (m+2 n)=(i+j) 
+            # (m+2 n)=(i+j)
             if ((i+j)%2):
                 # x^m in (0,2,...)
                 # n=(i+j-m)/2
                 # 0,1,dots,Lambda,0,dots,Lambda-2,
-                # \sum_i=0^{n-1}(Lambda+1 -i) + m 
+                # \sum_i=0^{n-1}(Lambda+1 -i) + m
                 # (Lambda+1- (i+j-x-1)/2)*(i+j-x)
                 xypositions=([(Lambda+1-(i+j-x-1)/2)*(i+j-x-1)/2+x for x in range(0,len(temp),2)])
-                coeff_with_position=zip(xypositions,temp[0::2]) 
+                coeff_with_position=zip(xypositions,temp[0::2])
             else:
                 xypositions=([(Lambda+2-(i+j-x-1)/2)*(i+j-x-1)/2+x for x in range(1,len(temp),2)])
-                coeff_with_position=zip(xypositions,temp[1::2]) 
-            [result[column_position].__setitem__(int(x[0]),field(x[1]/2)) for x in coeff_with_position] 
+                coeff_with_position=zip(xypositions,temp[1::2])
+            [result[column_position].__setitem__(int(x[0]),field(x[1]/2)) for x in coeff_with_position]
     return result.transpose()
 
 def z_zbar_derivative_to_x_y_derivative_Matrix(Lambda,field=RealField(400)):
     """
-    z_zbar_derivative_to_x_y_derivative_Matrix(Lambda,field=RealField(400)) 
+    z_zbar_derivative_to_x_y_derivative_Matrix(Lambda,field=RealField(400))
     returns the matrix to convert the derivatives of real function
     w.r.t. z and z_bar to those with x and y.
     Assuming the derivatives to be ordered as
@@ -66,7 +67,7 @@ def z_zbar_derivative_to_x_y_derivative_Matrix(Lambda,field=RealField(400)):
     if (Lambda%2):
         dimG=(Lambda+1)*(Lambda+3)/4
     else:
-        dimG=((Lambda+2)**2)/4 
+        dimG=((Lambda+2)**2)/4
     result=np.ndarray(dimG**2,dtype='O')
     result=result.reshape(dimG,dimG)
     set_ij_elements = lambda x,a,b,i,j: result[((Lambda+2-a)*a+b)].__setitem__(((Lambda+2-i)*i+j),x)
@@ -74,12 +75,12 @@ def z_zbar_derivative_to_x_y_derivative_Matrix(Lambda,field=RealField(400)):
         for j in range(i,Lambda+1-i):
             if (i==j):
                 temp=((q('x+1')**j)*(q('x-1')**i)).padded_list()
-            else:        
+            else:
                 temp=((q('x+1')**j)*(q('x-1')**i)+(q('x-1')**j)*(q('x+1')**i)).padded_list()
             if((i+j)%2):
                 map(lambda x, y:set_ij_elements(x,(i+j-y)/2,y,i,j-i),temp[1::2],range(1,len(temp),2))
             else:
-                map(lambda x, y:set_ij_elements(x,(i+j-y)/2,y,i,j-i),temp[0::2],range(0,len(temp),2)) 
+                map(lambda x, y:set_ij_elements(x,(i+j-y)/2,y,i,j-i),temp[0::2],range(0,len(temp),2))
     return np.array(map(lambda x: 0 if x==None else x, result.flatten())).reshape(dimG,dimG)
 
 
@@ -89,41 +90,41 @@ cdef class cb_universal_context:
     precision, cutoff parameter Lambda, and the matrix representing
     the change variables, e.g. {z, z_bar}->(x,y) and r -> x.
     """
-    def __cinit__(self, int Lambda, mp_prec_t Prec, long nMax,*args,**kwargs):
+    def __cinit__(self, int Lambda, mpfr_prec_t Prec, long nMax,*args,**kwargs):
         self.c_context = <cb_context>context_construct(nMax,Prec,Lambda)
-        self.precision=<mp_prec_t>Prec
+        self.precision=<mpfr_prec_t>Prec
         self.field=<RealField_class>RealField(Prec)
         self.Delta_Field=self.field['Delta']
         self.Delta=self.Delta_Field('Delta')
         self.Lambda=Lambda
         self.maxExpansionOrder=nMax
         self.rho_to_z_matrix=np.ndarray([Lambda+1,Lambda+1],dtype='O')
-        self.polynomial_vector_evaluate=np.vectorize(lambda x, value:self.Delta_Field(x)(value)) 
+        self.polynomial_vector_evaluate=np.vectorize(lambda x, value:self.Delta_Field(x)(value))
 
         for i in range(0,Lambda+1):
             for j in range(0,Lambda+1):
                 r=<RealNumber>(<RealField_class>self.field)._new()
                 r._parent=self.field
-                mpfr_init2(r.value,<mp_prec_t>Prec)
-                mpfr_set(r.value,<mpfr_t>self.c_context.rho_to_z_matrix[i*(Lambda+1)+j],MPFR_RNDN) 
+                mpfr_init2(r.value,<mpfr_prec_t>Prec)
+                mpfr_set(r.value,<mpfr_t>self.c_context.rho_to_z_matrix[i*(Lambda+1)+j],MPFR_RNDN)
                 self.rho_to_z_matrix[i][j]=r
 
-    def __init__(self, int Lambda, mp_prec_t Prec, long nMax,*args,**kwargs):
+    def __init__(self, int Lambda, mpfr_prec_t Prec, long nMax,*args,**kwargs):
 
         self.polynomial_vector_shift=np.vectorize(lambda x,shift:self.Delta_Field(x)(self.Delta + shift))
-        self.rho=3-2*(self.field)(2).sqrt() 
+        self.rho=3-2*(self.field)(2).sqrt()
         self.convert_to_polynomial_vector=np.vectorize(lambda y:self.Delta_Field(y))
-        self.convert_to_real_vector=np.vectorize(lambda y:self.field(y)) 
+        self.convert_to_real_vector=np.vectorize(lambda y:self.field(y))
 
         self.zzbar_to_xy_marix=z_zbar_derivative_to_x_y_derivative_Matrix(self.Lambda, self.field)
-        self.index_list=reduce(lambda x,y:x+y,map(lambda i: map(lambda j:np.array([i,j]),range(0,self.Lambda+1-2*i)),range(self.Lambda//2 + 1))) 
+        self.index_list=reduce(lambda x,y:x+y,map(lambda i: map(lambda j:np.array([i,j]),range(0,self.Lambda+1-2*i)),range(self.Lambda//2 + 1)))
         self.rho_to_delta=np.ndarray(self.Lambda+1,dtype='O')
         self.rho_to_delta[0]=self.Delta_Field(1)
         for i in range(1,self.Lambda+1):
             self.rho_to_delta[i]=self.rho_to_delta[i-1]*(self.Delta+1-i)/(self.rho*i)
         self.rho_to_delta=self.rho_to_z_matrix.dot(self.rho_to_delta)
         self.null_ftype=np.array(map(lambda x:self.field(0),range(0,((Lambda+1)//2)*(((Lambda+1)//2)+1)/2)))
-        self.null_htype=np.array(map(lambda x:self.field(0),range(0,((Lambda+2)//2)*(((Lambda+2)//2)+1)/2))) 
+        self.null_htype=np.array(map(lambda x:self.field(0),range(0,((Lambda+2)//2)*(((Lambda+2)//2)+1)/2)))
 
     def dim_f(self):
         return int(((self.Lambda+1)//2)*(((self.Lambda+1)//2)+1)/2)
@@ -147,7 +148,7 @@ cdef class cb_universal_context:
     def identity_vector(self):
         res = np.concatenate([self.null_ftype,self.null_htype])
         res[0]=self.field(1)
-        return res 
+        return res
 
     def v_to_d(self,d):
         """
@@ -163,21 +164,21 @@ cdef class cb_universal_context:
             for j in range(i,self.Lambda+1-i):
                 local_res.append((local_table[i]*local_table[j]+local_table[j]*local_table[i])/2)
         return self.zzbar_to_xy_marix.dot(np.array(local_res))
-        
+
     def v_to_d_and_anti_symmetrizing_matrix(self,d):
         return self.make_F_minus_matrix(d)
 
     def make_F_minus_matrix(self,d):
-        return self.F_minus_matrix(d) 
+        return self.F_minus_matrix(d)
 
     def F_minus_matrix(self,d):
         """
         compute a numpy matrix corresponding to
         v^d multiplication followed by x<-> -x anti-symmetrization.
-        For example, the vector for 
+        For example, the vector for
         F^{-}_{d,\Delta, l}(x,y) is computed by
         F_minus = v_to_d_and_anti_symmetrizing_matrix(d).dot(gBlock(ell,Delta,S,P))
-        """ 
+        """
         aligned_index = lambda x: (self.Lambda + 2 - x[0])*x[0]+x[1]
         local_v=self.v_to_d(d)
         return ((self.field(1)/4)**d)*np.array(map(lambda i: (np.array(map(lambda m: local_v[aligned_index(i-m)] if ((i-m)[0]>=0 and (i-m)[1]>=0 ) else d.parent(0),self.index_list)))
@@ -186,49 +187,49 @@ cdef class cb_universal_context:
     def v_to_d_and_symmetrizing_matrix(self,d):
         return self.F_plus_matrix(d)
 
-    def make_F_plus_matrix(self,d): 
-        return self.F_plus_matrix(d) 
+    def make_F_plus_matrix(self,d):
+        return self.F_plus_matrix(d)
 
-    def F_plus_matrix(self,d): 
+    def F_plus_matrix(self,d):
         """
         compute a numpy matrix corresponding to
         v^d multiplication followed by x<-> -x symmetrization.
-        For example, the vector for 
+        For example, the vector for
         F^{+}_{d,\Delta, l}(x,y) is computed by
         F_minus = v_to_d_and_symmetrizing_matrix(d).dot(gBlock(ell,Delta,S,P))
         """
         aligned_index = lambda x: (self.Lambda + 2 - x[0])*x[0]+x[1]
         local_v=self.v_to_d(d)
         return ((self.field(1)/4)**d)*np.array(map(lambda i: (np.array(map(lambda m: local_v[aligned_index(i-m)] if ((i-m)[0]>=0 and (i-m)[1]>=0 ) else d.parent(0),self.index_list)))
-            ,[x for x in self.index_list if not x[1]%2])) 
+            ,[x for x in self.index_list if not x[1]%2]))
 
     def univariate_func_prod(self,x,y):
         return np.array(map(lambda i:x[0:i+1].dot(y[i::-1]),range(0,self.Lambda+1)))
 
     def SDP(self,normalization,objective,pvm,label=None):
         return SDP(normalization,objective,pvm,label=label,context=self)
-    
+
     def positive_matrix_with_prefactor(self,pref,array):
         return positive_matrix_with_prefactor(pref,array,self)
     def damped_rational(self,poles,c):
         return damped_rational(poles,4*self.rho,c,self)
 
     def prefactor_numerator(self,pref,array):
-        return prefactor_numerator(pref,array,self) 
+        return prefactor_numerator(pref,array,self)
 
     def pochhammer(self,x,unsigned long n):
         x_c=self.field(x)
-        cdef mpfr_t temp1 
+        cdef mpfr_t temp1
         mpfr_init2(temp1,self.precision)
-        result=<RealNumber>(<RealField_class>self.field)._new() 
+        result=<RealNumber>(<RealField_class>self.field)._new()
         (<RealNumber>result)._parent=self.field
         mpfr_init2(<mpfr_t>(<RealNumber> result).value,self.precision)
         mpfr_set_ui(<mpfr_t>(<RealNumber> result).value,1,MPFR_RNDN)
         for j in range(0,n):
             mpfr_add_ui(temp1,<mpfr_t>(<RealNumber>x_c).value, j,MPFR_RNDN)
-            mpfr_mul(<mpfr_t>(<RealNumber>result).value, <mpfr_t>(<RealNumber>result).value,temp1,MPFR_RNDN) 
+            mpfr_mul(<mpfr_t>(<RealNumber>result).value, <mpfr_t>(<RealNumber>result).value,temp1,MPFR_RNDN)
         mpfr_clear(temp1)
-        return result 
+        return result
 
     def vector_to_prefactor_numerator(self,vector):
         """
@@ -254,8 +255,8 @@ cdef class cb_universal_context:
                     m_new=d_order[Delta]
                     res.update({Delta:m_new})
         rems=[]
-        for pref in preflist: 
-            d_order=pref.poles 
+        for pref in preflist:
+            d_order=pref.poles
             rem=[]
             for Delta in res:
                 mr=res[Delta]
@@ -265,7 +266,7 @@ cdef class cb_universal_context:
                         rem.append((Delta,mr-m))
                 except KeyError:
                     rem.append((Delta,mr))
-            rems.append(dict(rem)) 
+            rems.append(dict(rem))
         res=self.damped_rational(res,self(1))
         return (res,rems)
 
@@ -284,7 +285,7 @@ cdef class cb_universal_context:
                     raise RuntimeError("unequal dim")
             for i,row in enumerate(mat):
                 if not nrow==len(row):
-                    raise RuntimeError("unequal dim") 
+                    raise RuntimeError("unequal dim")
                 for j,x in enumerate(row):
                     if isinstance(x,prefactor_numerator):
                         len_x=x.matrix.shape[-1]
@@ -299,29 +300,29 @@ cdef class cb_universal_context:
                         if not dims[n]==len_x:
                             raise RuntimeError("Input has inconsistent dimensions.")
                     except KeyError:
-                        dims.update({n:len_x}) 
+                        dims.update({n:len_x})
 
-        res_pref, pref_rems=self.lcms([pn.prefactor for pn in pns]) 
+        res_pref, pref_rems=self.lcms([pn.prefactor for pn in pns])
         vecs=[(ind,__mult_poles(rem,pn.prefactor.pref_constant*pn.matrix,self))
                 for ind, pn, rem in zip(pnindices, pns, pref_rems)]
         bodies.update(dict(vecs))
         res=np.ndarray((nrow,nrow,sum([dims[x] for x in dims])),dtype='O')
         for i in range(nrow):
-            for j in range(nrow): 
+            for j in range(nrow):
                 v=(bodies[(n,i,j)].reshape((dims[n],)) for n in range(0,nBlock))
                 vv=np.concatenate(tuple(v))
                 res[i,j]=vv
         return prefactor_numerator(res_pref,res,self)
 
     def sumrule_to_SDP(self,normalization,objective,svs,**kwargs):
-        n_block=len(svs[0]) 
+        n_block=len(svs[0])
         dims={}
         shapes=[]
         res=[]
         tbs=dict([(n,[]) for n in range(n_block)])
         for m,sv in enumerate(svs):
             if len(sv)!=n_block:
-                raise RuntimeError("Sum rule vector has in equal dimensions!") 
+                raise RuntimeError("Sum rule vector has in equal dimensions!")
             psv=[]
             for n,component in enumerate(sv):
                 if not isinstance(component,list):
@@ -330,11 +331,11 @@ cdef class cb_universal_context:
                     pcomponent=component
                 for i, row in enumerate(pcomponent):
                     for j,x in enumerate(row):
-                        if isinstance(x,prefactor_numerator): 
+                        if isinstance(x,prefactor_numerator):
                             try:
                                 givendim=dims[n]
                                 if givendim!=x.matrix.shape[-1]:
-                                    raise RuntimeError("Found inconsistent dimension.") 
+                                    raise RuntimeError("Found inconsistent dimension.")
                             except KeyError:
                                 dims[n]=x.matrix.shape[-1]
                         elif isinstance(x,np.ndarray):
@@ -342,14 +343,14 @@ cdef class cb_universal_context:
                             try:
                                 givendim=dims[n]
                                 if givendim!=x.shape[-1]:
-                                    raise RuntimeError("Found inconsistent dimension.") 
+                                    raise RuntimeError("Found inconsistent dimension.")
                             except KeyError:
-                                dims[n]=x.shape[-1] 
+                                dims[n]=x.shape[-1]
                         else:
                             x=int(x)
                             tbs[n].append((m,n,i,j))
                 psv.append(pcomponent)
-            res.append(psv) 
+            res.append(psv)
         if n_block > len(dims.keys()):
             raise RuntimeError("There exists a component zero for all")
         for k in dims:
@@ -390,15 +391,15 @@ cdef class cb_universal_context:
             try:
                 if int(objective)==0:
                     obj=np.ndarray((sum([dims[n] for n in dims]),),dtype='O')
-                    obj[:]=self(0) 
+                    obj[:]=self(0)
                 else:
-                    raise NotImplementedError("Got unrecognizable input for objective") 
+                    raise NotImplementedError("Got unrecognizable input for objective")
             except TypeError:
-                raise NotImplementedError("Got unrecognizable input for objective") 
+                raise NotImplementedError("Got unrecognizable input for objective")
         return self.SDP(norm,obj,[self.join(sv) for sv in res],**kwargs)
 
     def dot(self,x,y):
-        # Unfortunately __numpy_ufunc__ seems to be disabled (temporarily?) 
+        # Unfortunately __numpy_ufunc__ seems to be disabled (temporarily?)
         # so I cannot override np.dot
         #
         if isinstance(x,prefactor_numerator):
@@ -461,8 +462,8 @@ cpdef fast_partial_fraction(pole_data,prec):
         mpfr_set(<mpfr_t>(<RealNumber>result_py[count][2]).value, result[count],MPFR_RNDN)
         mpfr_clear(result[count])
         result_py[count][0]=pole_data[i][0]
-        if pole_data[i][1]==1: 
-            result_py[count][1]=1 
+        if pole_data[i][1]==1:
+            result_py[count][1]=1
         if pole_data[i][1]==2:
             result_py[count][1]=2
             count=count+1
@@ -474,37 +475,37 @@ cpdef fast_partial_fraction(pole_data,prec):
             result_py[count][0]=pole_data[i][0]
             result_py[count][1]=1
 
-        count=count+1 
+        count=count+1
     free(result)
     return result_py
 
-cpdef simple_or_double_pole_integral(x_power_max,base,pole_position, order_of_pole, mp_prec_t prec):
+cpdef simple_or_double_pole_integral(x_power_max,base,pole_position, order_of_pole, mpfr_prec_t prec):
     a=RealField(2*prec)(pole_position)
     b=RealField(2*prec)(base)
     if (a==0):
         if order_of_pole >=2:
             raise RuntimeError("diverging integral")
-        elif order_of_pole==1: 
+        elif order_of_pole==1:
             incomplete_gamma = 1
         else:
             raise NotImplementedError("pole order must be 1 or 2")
     else:
-        incomplete_gamma = b**a*gamma(0,a*(b.log())) 
+        incomplete_gamma = b**a*gamma(0,a*(b.log()))
 
     if not incomplete_gamma.is_real():
         raise RuntimeError("could not obtain sensible value in the integral.")
     else:
         incomplete_gamma=RealField(prec)(incomplete_gamma)
-    
+
     field=RealField(prec)
     a=field(pole_position)
-    b=field(base) 
+    b=field(base)
 
     cdef mpfr_t* result;
     if order_of_pole==1:
-        result = simple_pole_case_c(<long> x_power_max, <mpfr_t>(<RealNumber>b).value, <mpfr_t>(<RealNumber> a).value,<mpfr_t>(<RealNumber> incomplete_gamma).value,prec) 
+        result = simple_pole_case_c(<long> x_power_max, <mpfr_t>(<RealNumber>b).value, <mpfr_t>(<RealNumber> a).value,<mpfr_t>(<RealNumber> incomplete_gamma).value,prec)
     elif order_of_pole==2:
-        result = double_pole_case_c(<long> x_power_max, <mpfr_t>(<RealNumber>b).value, <mpfr_t>(<RealNumber> a).value,<mpfr_t>(<RealNumber> incomplete_gamma).value,prec) 
+        result = double_pole_case_c(<long> x_power_max, <mpfr_t>(<RealNumber>b).value, <mpfr_t>(<RealNumber> a).value,<mpfr_t>(<RealNumber> incomplete_gamma).value,prec)
     result_py=np.ndarray(x_power_max+1,dtype='O')
     for i in range(0,x_power_max+1):
         result_py[i]=<RealNumber>(<RealField_class>field)._new()
@@ -515,11 +516,11 @@ cpdef simple_or_double_pole_integral(x_power_max,base,pole_position, order_of_po
     free(result)
     return result_py
 
-cdef mpfr_t* pole_integral_c(x_power_max,base, pole_position, order_of_pole, mp_prec_t prec):
+cdef mpfr_t* pole_integral_c(x_power_max,base, pole_position, order_of_pole, mpfr_prec_t prec):
     a=RealField(2*prec)(pole_position)
     b=RealField(2*prec)(base)
     if a<0:
-        incomplete_gamma = b**a*gamma(0,a*(b.log())) 
+        incomplete_gamma = b**a*gamma(0,a*(b.log()))
     elif a==0:
         incomplete_gamma = RealField(prec)(prec)
     else:
@@ -528,27 +529,27 @@ cdef mpfr_t* pole_integral_c(x_power_max,base, pole_position, order_of_pole, mp_
         raise RuntimeError("Integral not real ... perhaps a mistake in pole data.")
     else:
         incomplete_gamma=RealField(prec)(incomplete_gamma)
-    
-    field=RealField(prec) 
+
+    field=RealField(prec)
     a=field(pole_position)
-    b=field(base) 
+    b=field(base)
 
     cdef mpfr_t* result;
     if order_of_pole==1:
-        result = simple_pole_case_c(<long> x_power_max, <mpfr_t>(<RealNumber>b).value, <mpfr_t>(<RealNumber> a).value,<mpfr_t>(<RealNumber> incomplete_gamma).value,prec) 
+        result = simple_pole_case_c(<long> x_power_max, <mpfr_t>(<RealNumber>b).value, <mpfr_t>(<RealNumber> a).value,<mpfr_t>(<RealNumber> incomplete_gamma).value,prec)
     elif order_of_pole==2:
-        result = double_pole_case_c(<long> x_power_max, <mpfr_t>(<RealNumber>b).value, <mpfr_t>(<RealNumber> a).value,<mpfr_t>(<RealNumber> incomplete_gamma).value,prec) 
-    return result 
+        result = double_pole_case_c(<long> x_power_max, <mpfr_t>(<RealNumber>b).value, <mpfr_t>(<RealNumber> a).value,<mpfr_t>(<RealNumber> incomplete_gamma).value,prec)
+    return result
 
 
-cpdef prefactor_integral(pole_data, base, int x_power, prec,c=1): 
+cpdef prefactor_integral(pole_data, base, int x_power, prec,c=1):
     field=RealField(prec)
     cdef int n = len(pole_data)
     cdef int number_of_factors = sum([x[1] for x in pole_data])
-    
+
     cdef int count = 0
     index_list = []
-    for i in range(0,len(pole_data)): 
+    for i in range(0,len(pole_data)):
         if field(pole_data[i][0]) > 0:
             raise NotImplementedError("There exists a pole on the integration contour of the prefactor!")
         if pole_data[i][1]==1:
@@ -596,12 +597,12 @@ cpdef prefactor_integral(pole_data, base, int x_power, prec,c=1):
         result[i]=<RealNumber>(<RealField_class>field)._new()
         mpfr_init2(<mpfr_t>(<RealNumber> result[i]).value,prec)
         #mpfr_set_ui(<mpfr_t>(<RealNumber> result[i]).value,0,MPFR_RNDN)
-        mpfr_set_zero(<mpfr_t>(<RealNumber> result[i]).value,1) 
-        (<RealNumber> result[i])._parent = field 
+        mpfr_set_zero(<mpfr_t>(<RealNumber> result[i]).value,1)
+        (<RealNumber> result[i])._parent = field
 
     cdef mpfr_t* temp_mpfrs
 
-    for i in range(0,number_of_factors): 
+    for i in range(0,number_of_factors):
         temp_mpfrs = pole_integral_c(x_power, base, pole_data[index_list[i][0]][0], index_list[i][1], prec)
 
         for j in range(0,x_power+1):
@@ -646,19 +647,19 @@ cpdef anti_band_cholesky_inverse(v,n_order_max,prec):
     for i in range(0,(n_max+1)**2):
         mpfr_clear(cholesky_decomposed[i])
     free(cholesky_decomposed)
-    
+
     result = np.ndarray([n_max+1,n_max+1],dtype='O')
     for i in range(0,n_max+1):
         for j in range(0,n_max+1):
             result[i][j]=<RealNumber>(<RealField_class>field)._new()
             mpfr_init2(<mpfr_t>(<RealNumber>result[i][j]).value,prec)
             mpfr_set(<mpfr_t>(<RealNumber>result[i][j]).value,inversed[i*(n_max+1)+j],MPFR_RNDN)
-            (<RealNumber>result[i][j])._parent=field 
+            (<RealNumber>result[i][j])._parent=field
             mpfr_clear(inversed[i*(n_max+1)+j])
 
     free(inversed)
     return result
-    
+
 
 def max_index(_v):
     return sorted(map(lambda x,y:[x,y],_v,range(0,len(_v))),key=lambda x:x[0].abs(),reverse=True)[0][1]
@@ -674,7 +675,7 @@ def recover_functional(alpha,normalizing_vector):
     __index = max_index(normalizing_vector)
     __deleted_normalizing_vector = (1/normalizing_vector[__index])*np.delete(normalizing_vector,__index)
     if not (len(alpha) == (len(normalizing_vector)-1)):
-        raise RuntimeError("length of normalizing vector and target object must be equal.") 
+        raise RuntimeError("length of normalizing vector and target object must be equal.")
     alpha_deleted=(1/normalizing_vector[__index])-alpha.dot(__deleted_normalizing_vector)
     return np.insert(alpha,__index,alpha_deleted)
 
@@ -687,7 +688,7 @@ def efm_from_sdpb_output(file_path,normalizing_vector,context):
     data_stream.close()
     yres_text=find_y.search(data_text).groups()[0]
     vector_text=re.split(r', ', yres_text)
-    y_result=np.array([context.field(x) for x in vector_text]) 
+    y_result=np.array([context.field(x) for x in vector_text])
     return recover_functional(y_result,normalizing_vector)
 
 
@@ -735,7 +736,7 @@ def format_poleinfo(poles,context=None):
         elif not isinstance(poles[0],list):
             m=dict([[x,1] for x in poles])
             for x in m:
-                m[x]=poles.count(x)                           
+                m[x]=poles.count(x)
             return dict([[field(x),m[x]] for x in m])
         elif len(poles[0])==2:
             try:
@@ -750,16 +751,16 @@ def format_poleinfo(poles,context=None):
 def __dict_add(dict1,dict2):
     return dict([(x,dict1[x]+dict2[x]) for x in dict2 if x in dict1]\
             +[(x,dict2[x]) for x in dict2 if x not in dict1]\
-            +[(x,dict1[x]) for x in dict1 if x not in dict2]) 
-    
-           
+            +[(x,dict1[x]) for x in dict1 if x not in dict2])
+
+
 cdef class damped_rational:
     def __cinit__(self,poles,base,c,cb_universal_context context):
         self.base=context.field(base)
-        self.pref_constant=context.field(c) 
+        self.pref_constant=context.field(c)
         self.context=context
 
-    def __init__(self,poles,base,c,cb_universal_context context): 
+    def __init__(self,poles,base,c,cb_universal_context context):
         self.poles=format_poleinfo(poles,context)
 
     def shift(self,shift):
@@ -774,7 +775,7 @@ cdef class damped_rational:
         return anti_band_cholesky_inverse(prefactor_integral(passed_poles,self.base, order, self.context.precision, self.pref_constant), order//2,self.context.precision)
 
     def __mul__(self,y):
-        if isinstance(y,damped_rational):           
+        if isinstance(y,damped_rational):
             res_poles=copy.copy(self.poles)
             orig_keys=res_poles.keys()
             for x in y.poles.keys():
@@ -784,7 +785,7 @@ cdef class damped_rational:
                     res_poles.update({x:y.poles[x]})
             new_base=self.base*y.base
             new_const=self.pref_constant*y.pref_constant
-            return damped_rational(res_poles,new_base,new_const,self.context)            
+            return damped_rational(res_poles,new_base,new_const,self.context)
         else:
             raise TypeError("damped_rational must be multiplied with itself")
 
@@ -798,7 +799,7 @@ cdef class damped_rational:
                 res_poles.update({x:location_new[x]})
         return damped_rational(res_poles,self.base,self.pref_constant,self.context)
     def remove_poles(self,location):
-        res_poles=copy.copy(self.poles)        
+        res_poles=copy.copy(self.poles)
         location_new=format_poleinfo(location)
         for x in location_new.keys():
             if x in res_poles.keys():
@@ -819,7 +820,7 @@ cdef class damped_rational:
             if not self.base==p.base:
                 raise RuntimeError("two damped-rational must have the same base!")
             if p==self:
-                return (self,{},{}) 
+                return (self,{},{})
         else:
             raise TypeError("lcm supported only between damped_rationals")
 
@@ -834,8 +835,8 @@ cdef class damped_rational:
             elif val2 > val1:
                 return ((x,val2),(x,val2-val1),(x,0))
             else:
-                return ((x,val2),(x,0),(x,0)) 
-        
+                return ((x,val2),(x,0),(x,0))
+
         result_1,self_rem,p_rem =\
                 zip(*(help_lcm(x) for x in dict2 if x in dict1))
 
@@ -884,10 +885,10 @@ cdef class damped_rational:
 
 cdef class positive_matrix_with_prefactor:
     def __cinit__(self, damped_rational prefactor, matrix, cb_universal_context context):
-        self.prefactor=prefactor 
+        self.prefactor=prefactor
         self.context = context
 
-    def __init__(self, damped_rational prefactor, matrix, context): 
+    def __init__(self, damped_rational prefactor, matrix, context):
         self.matrix=(matrix)
 
     def shift(self,x):
@@ -900,20 +901,20 @@ cdef class positive_matrix_with_prefactor:
             return 0
 
     def normalization_subtract(self,v):
-        return normalizing_component_subtract(self.matrix,v) 
+        return normalizing_component_subtract(self.matrix,v)
 
     def write(self,file_stream,v):
             shuffled_matrix=np.array(map(lambda x:map(lambda y:normalizing_component_subtract(y,v),x),self.matrix))
             sample_points = laguerre_sample_points(self.degree_max()+1,self.context.field,self.context.rho)
             sample_scalings=map(self.prefactor,sample_points)
             orthogonal_polynomial_vector=map(self.context.Delta_Field,self.prefactor.orthogonal_polynomial(self.degree_max()))
-            
+
             file_stream.write("<polynomialVectorMatrix>\n")
             file_stream.write("<rows>\n")
-            file_stream.write(repr(len(shuffled_matrix)))    
+            file_stream.write(repr(len(shuffled_matrix)))
             file_stream.write("</rows>\n")
             file_stream.write("<cols>\n")
-            file_stream.write(repr(len(shuffled_matrix[0])))    
+            file_stream.write(repr(len(shuffled_matrix[0])))
             file_stream.write("</cols>\n")
             file_stream.write("<elements>\n")
             map(lambda x:map(lambda y:write_polynomial_vector(file_stream,y),x),shuffled_matrix)
@@ -921,7 +922,7 @@ cdef class positive_matrix_with_prefactor:
             write_vector(file_stream,"samplePoints",sample_points)
             write_vector(file_stream,"sampleScalings",sample_scalings)
             file_stream.write("<bilinearBasis>\n")
-            map(lambda x :write_polynomial(file_stream,x),orthogonal_polynomial_vector) 
+            map(lambda x :write_polynomial(file_stream,x),orthogonal_polynomial_vector)
             file_stream.write("</bilinearBasis>\n")
             file_stream.write("</polynomialVectorMatrix>\n")
 
@@ -937,13 +938,13 @@ cdef class positive_matrix_with_prefactor:
 
 
 cdef class prefactor_numerator(positive_matrix_with_prefactor):
-    def add_poles(self,poles):        
+    def add_poles(self,poles):
         new_pref=self.prefactor.add_poles(poles)
         return prefactor_numerator(new_pref,self.matrix,self.context)
 
     def rdot(self,M):
         newBody=M.dot(self.matrix)
-        return prefactor_numerator(self.prefactor,newBody,self.context) 
+        return prefactor_numerator(self.prefactor,newBody,self.context)
 
     def shift(self,x):
         return prefactor_numerator(self.prefactor.shift(x),self.context.polynomial_vector_shift(self.matrix,x),self.context)
@@ -981,15 +982,15 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
 
     def __rmul__(self,x):
         new_mat=x*self.matrix
-        return prefactor_numerator(self.prefactor,new_mat,self.context) 
+        return prefactor_numerator(self.prefactor,new_mat,self.context)
 
     def __neg__(self):
         new_mat=-self.matrix
-        return prefactor_numerator(self.prefactor,new_mat,self.context) 
+        return prefactor_numerator(self.prefactor,new_mat,self.context)
 
     def __div__(self,x):
         new_mat=self.matrix/x
-        return prefactor_numerator(self.prefactor,new_mat,self.context) 
+        return prefactor_numerator(self.prefactor,new_mat,self.context)
 
     def __add__(self,other):
         if not isinstance(other,prefactor_numerator):
@@ -1002,7 +1003,7 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
         other.prefactor.pref_constant)
         new_matrix=remnant_poly1*self.matrix \
                 + remnant_poly2*other.matrix
-        return prefactor_numerator(new_pref,new_matrix,self.context) 
+        return prefactor_numerator(new_pref,new_matrix,self.context)
 
 
 #    def __add__(self,other):
@@ -1019,7 +1020,7 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
 #                    del remnant_1[x]
 #                else:
 #                    remnant_1[x]=new_v
-#        for x in other.prefactor.poles:                    
+#        for x in other.prefactor.poles:
 #            if x in remnant_2:
 #                new_v=res_poles[x]-other.prefactor.poles[x]
 #                if new_v==0:
@@ -1043,12 +1044,12 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
         remnant_poly2=reduce(lambda x,y:x*y,[(self.context.Delta -z)**remnant_2[z] for z in remnant_2],\
         other.prefactor.pref_constant)
         new_matrix=np.concatenate((remnant_poly1*self.matrix,remnant_poly2*other.matrix))
-        return prefactor_numerator(new_pref,new_matrix,self.context) 
+        return prefactor_numerator(new_pref,new_matrix,self.context)
 
     def __sub__(self,x):
         if not isinstance(x,prefactor_numerator):
             raise TypeError("must be added to another prefactor_numerator")
-        return self.__add__(x.__neg__()) 
+        return self.__add__(x.__neg__())
 
     def __call__(self,x):
         pref=self.prefactor(x)
@@ -1071,7 +1072,7 @@ def functional_to_spectra(ef_path,problem,context,label=None):
     norm=problem.normalization
     pvm=problem.pvm
     alpha=efm_from_sdpb_output(ef_path,norm,context)
-    polys=[Matrix(x.matrix.dot(alpha)).det() for x in pvm] 
+    polys=[Matrix(x.matrix.dot(alpha)).det() for x in pvm]
     if label==None:
         label=range(0,len(polys))
     efmread=map(lambda x: find_local_minima(x[0],x[1]),zip(polys,label))
@@ -1090,12 +1091,12 @@ class SDP:
         self.label=label
         self.context=context
     def write(self,file_path):
-        file_stream=open(file_path,'w') 
+        file_stream=open(file_path,'w')
         file_stream.write("<sdp>\n")
         write_vector(file_stream,"objective",normalizing_component_subtract(self.objective,self.normalization))
         file_stream.write("<polynomialVectorMatrices>\n")
         for x in self.pvm:
-            x.write(file_stream,self.normalization) 
+            x.write(file_stream,self.normalization)
         file_stream.write("</polynomialVectorMatrices>\n")
         file_stream.write("</sdp>\n")
         file_stream.close()
