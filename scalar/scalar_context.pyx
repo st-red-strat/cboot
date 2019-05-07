@@ -1,6 +1,7 @@
 import numpy as np
 from libcpp cimport bool
 from sage.cboot.context_object cimport *
+from sage.cboot.scalar.scalar_context cimport *
 from sage.cboot.context_object import SDP
 from sage.all import matrix, ZZ, Integer, cached_method
 from cysignals.signals cimport sig_on, sig_off
