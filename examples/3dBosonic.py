@@ -41,7 +41,7 @@ def bs(delta,upper=3,lower=1,sdp_method=make_SDP):
         D_try=(upper+lower)/2
         prob=sdp_method(delta,{0:D_try})
         prob.write("3d_Ising_binary.xml")
-        sdpbargs=[sdpb,"-s","3d_Ising_binary.xml"]+sdpbparams
+        sdpbargs=[sdpb,"-s","3d_Ising_binary"]+sdpbparams
         out, err=Popen(sdpbargs,stdout=PIPE,stderr=PIPE).communicate()
         sol=re.compile(r'found ([^ ]+) optimal solution').search(out).groups()[0]
         print(err)
@@ -69,7 +69,7 @@ def make_SDP_for_cc(delta,gap_dict={0:1}):
 def cc(delta):
     prob=make_SDP_for_cc(delta)
     prob.write("3d_Ising_cc.xml")
-    sdpbargs=[sdpb,"-s","3d_Ising_cc.xml","--noFinalCheckpoint"]
+    sdpbargs=[sdpb,"-s","3d_Ising_cc","--noFinalCheckpoint"]
     out, err=Popen(sdpbargs,stdout=PIPE,stderr=PIPE).communicate()
     sol=re.compile(r'primalObjective *= *([^ ]+) *$',re.MULTILINE)\
             .search(out).groups()[0]
