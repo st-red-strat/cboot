@@ -43,10 +43,12 @@ def bs(delta,upper=3,lower=1,sdp_method=make_SDP):
         prob.write("3d_Ising_binary.xml")
         sdpbargs=[sdpb,"-s","3d_Ising_binary.xml"]+sdpbparams
         out, err=Popen(sdpbargs,stdout=PIPE,stderr=PIPE).communicate()
-        sol=re.compile(r'found ([^ ]+) feasible').search(out).groups()[0] 
+        sol=re.compile(r'found ([^ ]+) optimal solution').search(out).groups()[0]
+        print(err)
+        sol="dual"
         if sol=="dual":
             print("(Delta_phi, Delta_epsilon)={0} is excluded."\
-            .format((float(delta),float(D_try)))) 
+            .format((float(delta),float(D_try))))
             upper=D_try
         elif sol=="primal":
             print("(Delta_phi, Delta_epsilon)={0} is not excluded."\
