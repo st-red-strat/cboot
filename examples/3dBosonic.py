@@ -47,7 +47,9 @@ def bs(delta,upper=3,lower=1,sdp_method=make_SDP):
         print(out)
         sol="dual"
 #        sol=re.compile(r'found ([^ ]+) feasible').search(out).group()[0]
-        if sol=="dual":
+        if sol==None:
+            raise RuntimeError("Unexpected return from sdpb")
+        elif sol=="dual":
 #            print("(Delta_phi, Delta_epsilon)={0} is excluded."\
 #            .format((float(delta),float(D_try))))
             upper=D_try
