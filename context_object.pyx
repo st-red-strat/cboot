@@ -5,7 +5,7 @@ import numpy as np
 
 from sage.all import Matrix, is_square, sqrt
 cimport numpy as np
-from sage.functions.other import gamma
+from sage.functions.gamma import gamma
 from sage.rings.real_mpfr import RR
 import copy
 import re
