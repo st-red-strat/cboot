@@ -1,4 +1,5 @@
 import sage.cboot as cb
+import os
 context=cb.context_for_scalar(epsilon=0.5,Lambda=13)
 
 lmax=25
@@ -34,17 +35,18 @@ import re
 
 sdpb="sdpb"
 sdpbparams=["--procsPerNode=1","--precision=1024","--findPrimalFeasible","--findDualFeasible","--noFinalCheckpoint"]
-def bs(delta,upper=3,lower=1,sdp_method=make_SDP):
+def bs(projName,delta,upper=3,lower=1,sdp_method=make_SDP):
     upper=context(upper)
     lower=context(lower)
     while upper - lower > 0.001:
         D_try=(upper+lower)/2
         prob=sdp_method(delta,{0:D_try})
-        prob.write("3d_Ising_binary.xml")
-        sdpbargs=[sdpb,"-s","3d_Ising_binary"]+sdpbparams
+        prob.write(projName+".xml")
+        sdpbargs=[sdpb,"-s",projName]+sdpbparams
         out, err=Popen(sdpbargs,stdout=PIPE,stderr=PIPE).communicate()
-        sol=re.compile(r'found ([^ ]+) optimal solution').search(out).groups()[0]
+        print(out)
         print(err)
+        sol=re.compile(r'found ([^ ]+) optimal solution').search(out).groups()[0]
         sol="dual"
         if sol=="dual":
             print("(Delta_phi, Delta_epsilon)={0} is excluded."\
@@ -86,8 +88,13 @@ def make_SDP_epsilon_prime(delta,gap_dict):
 
 if __name__=='__main__':
     # The default example
+    projName = '3dBosonic'
+    projFolder = os.getcwd() + '/'+ projName
+    if not os.path.isdir(projFolder):
+        print(projFolder)
+        os.makedirs(projFolder)
     delta=0.518
-    print(bs(delta))
+    print(bs(projName,delta))
 
     # ===============================================
     # if you want to derive the central charge lower bound,
