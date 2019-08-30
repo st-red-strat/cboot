@@ -692,15 +692,11 @@ def efm_from_sdpb_output(file_path,normalizing_vector,context):
     return recover_functional(y_result,normalizing_vector)
 
 
-def write_real_num(file_stream,real_num,tag):
-    file_stream.write(("<"+tag+">"))
+def write_real_num(file_stream,real_num):
     file_stream.write(repr(real_num))
-    file_stream.write(("</"+tag+">\n"))
 
 def write_vector(file_stream,name,vector):
-    file_stream.write("<"+name+">\n")
-    map(lambda x:write_real_num(file_stream,x,"elt"),vector)
-    file_stream.write("</"+name+">\n")
+    map(lambda x:write_real_num(file_stream,x),vector)
 
 def write_polynomial(file_stream,polynomial):
     file_stream.write("<polynomial>\n")
@@ -711,7 +707,7 @@ def write_polynomial(file_stream,polynomial):
     #map(lambda x:write_real_num(file_stream,x,"coeff"), (lambda y: [0] if y ==[] else y )(polynomial.list()))
     if __temp==[]:
         __temp=[0]
-    map(lambda x:write_real_num(file_stream,x,"coeff"),__temp)
+    map(lambda x:write_real_num(file_stream,x,),__temp)
     file_stream.write("</polynomial>\n")
 
 def write_polynomial_vector(file_stream,polynomialVector):
@@ -1092,11 +1088,13 @@ class SDP:
         self.context=context
     def write(self,file_path):
         file_stream=open(file_path,'w')
-        file_stream.write("<sdp>\n")
         write_vector(file_stream,"objective",normalizing_component_subtract(self.objective,self.normalization))
         file_stream.write("<polynomialVectorMatrices>\n")
         for x in self.pvm:
             x.write(file_stream,self.normalization)
         file_stream.write("</polynomialVectorMatrices>\n")
-        file_stream.write("</sdp>\n")
         file_stream.close()
+
+class SDP_ver2:
+    def write_objectives(self,file_path):
+      file_stream_objectives=open(file_path+"/objectives",'w')

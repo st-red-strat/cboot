@@ -1,5 +1,6 @@
 import sage.cboot as cb
 import os
+import sys
 context=cb.context_for_scalar(epsilon=0.5,Lambda=13)
 
 lmax=25
@@ -35,7 +36,7 @@ import re
 
 sdpb="sdpb"
 sdpbparams=["--procsPerNode=1","--precision=1024","--findPrimalFeasible","--findDualFeasible","--noFinalCheckpoint"]
-def bs(projName,delta,upper=3,lower=1,sdp_method=make_SDP):
+def bs(rank,projName,delta,upper=3,lower=1,sdp_method=make_SDP):
     upper=context(upper)
     lower=context(lower)
     while upper - lower > 0.001:
@@ -94,7 +95,12 @@ if __name__=='__main__':
         print(projFolder)
         os.makedirs(projFolder)
     delta=0.518
-    print(bs(projName,delta))
+    args = sys.argv
+    if len(args) != 2:
+        print("Give me the MPI rank as a command line argument!")
+        sys.exit( )
+    rank = args[1]
+    print(bs(rank,projName,delta))
 
     # ===============================================
     # if you want to derive the central charge lower bound,
