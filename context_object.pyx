@@ -2,6 +2,7 @@ from libcpp cimport bool
 from sage.libs.mpfr cimport *
 from sage.rings.real_mpfr cimport *
 import numpy as np
+import os
 
 from sage.all import Matrix, is_square, sqrt
 cimport numpy as np
@@ -208,6 +209,9 @@ cdef class cb_universal_context:
 
     def SDP(self,normalization,objective,pvm,label=None):
         return SDP(normalization,objective,pvm,label=label,context=self)
+
+    def SDP_ver2(self,normalization,objective,pvm,label=None):
+        return SDP_ver2(normalization,objective,pvm,label=label,context=self)
 
     def positive_matrix_with_prefactor(self,pref,array):
         return positive_matrix_with_prefactor(pref,array,self)
@@ -1100,3 +1104,56 @@ class SDP:
         file_stream.write("</polynomialVectorMatrices>\n")
         file_stream.write("</sdp>\n")
         file_stream.close()
+
+def write_array(file_stream,vector):
+    file_stream.write(str(len(vector))+"\n")
+    map(lambda x:file_stream.write(repr(x)+"\n"),vector)
+
+def write_objectives(self,file_path):
+    file_stream_objectives=open(file_path+"/objectives",'w')
+    file_stream_objectives.write("objective_const\n")
+    write_array(file_stream_objectives,self.objective)
+
+def write_bilinear_bases(self,file_path):
+    file_stream_objectives=open(file_path+"/bilinear_bases",'w')
+    write_array(file_stream_objectives,normalizing_component_subtract(self.objective,self.normalization))
+
+def write_blocks(self,file_path,rank,num_procs):
+    file_stream_objectives=open(file_path+"/blocks"+str(rank),'w')
+    file_stream_objectives.write(str(num_procs)+"\n")
+    write_array(file_stream_objectives,normalizing_component_subtract(self.objective,self.normalization))
+
+def write_primal_objective_c(self,file_path):
+    file_stream_objectives=open(file_path+"/primal_objective_c",'w')
+    write_array(file_stream_objectives,normalizing_component_subtract(self.objective,self.normalization))
+
+def write_free_var_matrix(self,file_path):
+    file_stream_objectives=open(file_path+"/free_var_matrix",'w')
+    write_array(file_stream_objectives,normalizing_component_subtract(self.objective,self.normalization))
+
+class SDP_ver2:
+    def __init__(self,normalization,objective,pvm,label=None,context=None):
+        self.pvm = [x.reshape() if (isinstance(x,positive_matrix_with_prefactor)\
+                or isinstance(x,prefactor_numerator)) \
+                else
+                context.vector_to_prefactor_numerator(x).reshape() \
+                for x in pvm]
+        self.normalization=normalization
+        self.objective=objective
+        self.label=label
+        self.context=context
+  # See also: write_sdpb_input_files in sdpb
+    def write_all(self,file_path):
+      filename_without_ext, ext = os.path.splitext(os.path.basename(file_path))
+      projFolder = os.getcwd() + "/" + filename_without_ext
+      if not os.path.isdir(projFolder):
+        os.makedirs(projFolder)
+        print("created a folder: " + projFolder)
+      rank=0
+      num_procs=1
+      if rank==0:
+        write_objectives(self,file_path)
+      write_bilinear_bases(self,file_path)
+      write_blocks(self,file_path,rank,num_procs)
+      write_primal_objective_c(self,file_path)
+      write_free_var_matrix(self,file_path)
