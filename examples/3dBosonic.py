@@ -6,7 +6,7 @@ nu_max=12
 cbs={}
 for spin in range(0,lmax,2):
     g=context.approx_cb(nu_max,spin)
-    cbs.update({spin:g}) 
+    cbs.update({spin:g})
 
 def make_F(delta,spin,gap_dict):
     mat_F=context.F_minus_matrix(delta)
@@ -19,21 +19,21 @@ def make_F(delta,spin,gap_dict):
             gap=2*context.epsilon+spin
     g_shift=cbs[spin].shift(gap)
     F=context.dot(mat_F,g_shift)
-    return F 
+    return F
 
-def make_SDP(delta,gap_dict): 
+def make_SDP(delta,gap_dict):
     delta=context(delta)
     Fs=[make_F(delta,spin,gap_dict) for spin in cbs.keys()]
     mat_F=context.F_minus_matrix(delta)
     norm=context.dot(mat_F,context.gBlock(0,0,0,0))
     obj=norm*0
-    return context.SDP(norm,obj,Fs) 
+    return context.SDP(norm,obj,Fs)
 
 from subprocess import Popen, PIPE
 import re
 
 sdpb="sdpb"
-sdpbparams=["--findPrimalFeasible","--findDualFeasible","--noFinalCheckpoint"] 
+sdpbparams=["--findPrimalFeasible","--findDualFeasible","--noFinalCheckpoint"]
 def bs(delta,upper=3,lower=1,sdp_method=make_SDP):
     upper=context(upper)
     lower=context(lower)
@@ -43,17 +43,17 @@ def bs(delta,upper=3,lower=1,sdp_method=make_SDP):
         prob.write("3d_Ising_binary.xml")
         sdpbargs=[sdpb,"-s","3d_Ising_binary.xml"]+sdpbparams
         out, err=Popen(sdpbargs,stdout=PIPE,stderr=PIPE).communicate()
-        sol=re.compile(r'found ([^ ]+) feasible').search(out).groups()[0] 
+        sol=re.compile(r'found ([^ ]+) feasible').search(out).groups()[0]
         if sol=="dual":
             print("(Delta_phi, Delta_epsilon)={0} is excluded."\
-            .format((float(delta),float(D_try)))) 
+            .format((float(delta),float(D_try))))
             upper=D_try
         elif sol=="primal":
             print("(Delta_phi, Delta_epsilon)={0} is not excluded."\
-            .format((float(delta),float(D_try)))) 
+            .format((float(delta),float(D_try))))
             lower=D_try
         else:
-            raise RuntimeError("Unexpected return from sdpb") 
+            raise RuntimeError("Unexpected return from sdpb")
     return upper
 
 def make_SDP_for_cc(delta,gap_dict={0:1}):
@@ -73,14 +73,14 @@ def cc(delta):
             .search(out).groups()[0]
     return -delta**2/float(sol)
 
-def make_SDP_epsilon_prime(delta,gap_dict): 
+def make_SDP_epsilon_prime(delta,gap_dict):
     delta=context(delta)
     Fs=[make_F(delta,spin,gap_dict) for spin in cbs.keys()]
     mat_F=context.F_minus_matrix(delta)
     Fs+=[context.dot(mat_F,context.gBlock(0,delta,0,0))]
     norm=context.dot(mat_F,context.gBlock(0,0,0,0))
     obj=norm*0
-    return context.SDP(norm,obj,Fs) 
+    return context.SDP(norm,obj,Fs)
 
 if __name__=='__main__':
     # The default example
